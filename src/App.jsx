@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { TopNav } from './components/TopNav'
 import { ParkingProvider } from './context/ParkingContext'
 import { AdminPanel } from './pages/AdminPanel'
-import { ClientMapView } from './pages/ClientMapView'
+import { ParkingMapView } from './pages/ParkingMapView'
 
 function App() {
   return (
@@ -10,7 +10,7 @@ function App() {
       <div className="min-h-screen">
         <TopNav />
         <Routes>
-          <Route path="/" element={<ClientMapView />} />
+          <Route path="/" element={<ParkingMapView />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
