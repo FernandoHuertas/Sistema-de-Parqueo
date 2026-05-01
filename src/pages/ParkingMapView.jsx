@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AdvancedSearchPanel } from '../components/AdvancedSearchPanel'
 import { ParkingDetailModal } from '../components/ParkingDetailModal'
-import { PARKING_DATA, getStatus } from '../data/mockData'
+import { ReservationsPanel } from '../components/ReservationsPanel'
+import { useParkingContext } from '../context/ParkingContext'
+import { useReservation } from '../context/ReservationContext'
+import { getStatus } from '../data/mockData'
 
 const TYPE_LABEL = {
   municipal: 'Municipal',
@@ -130,17 +133,28 @@ function RoofIcon() {
 }
 
 export function ParkingMapView() {
+  const { parkings } = useParkingContext()
+  const { reservations, alert, cancelReservation, simulateSpaceTaken, dismissAlert } = useReservation()
   const [isQuickSearchActive, setIsQuickSearchActive] = useState(false)
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
-  const [selectedParking, setSelectedParking] = useState(null)
+  const [isReservationsOpen, setIsReservationsOpen] = useState(false)
+  const [selectedParkingId, setSelectedParkingId] = useState(null)
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
   const [draftFilters, setDraftFilters] = useState(DEFAULT_FILTERS)
 
-  const previewCount = useMemo(() => applyFilters(PARKING_DATA, draftFilters).length, [draftFilters])
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      simulateSpaceTaken()
+    }, 30000)
+
+    return () => window.clearInterval(interval)
+  }, [simulateSpaceTaken])
+
+  const previewCount = useMemo(() => applyFilters(parkings, draftFilters).length, [draftFilters, parkings])
 
   const filteredParkings = useMemo(
-    () => applyFilters(PARKING_DATA, appliedFilters),
-    [appliedFilters],
+    () => applyFilters(parkings, appliedFilters),
+    [appliedFilters, parkings],
   )
 
   const visibleParkings = useMemo(() => {
@@ -157,8 +171,31 @@ export function ParkingMapView() {
     setIsQuickSearchActive(false)
   }
 
+  const selectedParking = useMemo(
+    () => parkings.find((parking) => parking.id === selectedParkingId) ?? null,
+    [parkings, selectedParkingId],
+  )
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
+      {alert ? (
+        <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <p className="font-semibold text-rose-800">
+              Tu espacio reservado en {alert.parkingName} fue ocupado. Buscá una alternativa.
+            </p>
+            <button
+              type="button"
+              onClick={dismissAlert}
+              className="rounded-full px-2 py-1 text-sm font-bold text-rose-700 hover:bg-rose-100"
+              aria-label="Cerrar alerta"
+            >
+              X
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Mapa visual de parqueos</h2>
@@ -168,6 +205,13 @@ export function ParkingMapView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsReservationsOpen(true)}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            Mis Reservas ({reservations.filter((reservation) => reservation.status === 'active').length})
+          </button>
           <button
             type="button"
             onClick={() => setIsQuickSearchActive(true)}
@@ -239,7 +283,7 @@ export function ParkingMapView() {
             <button
               type="button"
               key={parking.id}
-              onClick={() => setSelectedParking(parking)}
+              onClick={() => setSelectedParkingId(parking.id)}
               className={`animate-slide-up rounded-xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                 status === 'full'
                   ? 'border-rose-200 bg-rose-50'
@@ -301,8 +345,16 @@ export function ParkingMapView() {
       />
 
       {selectedParking ? (
-        <ParkingDetailModal parking={selectedParking} onClose={() => setSelectedParking(null)} />
+        <ParkingDetailModal parking={selectedParking} onClose={() => setSelectedParkingId(null)} />
       ) : null}
+
+      <ReservationsPanel
+        isOpen={isReservationsOpen}
+        reservations={reservations}
+        parkings={parkings}
+        onClose={() => setIsReservationsOpen(false)}
+        onCancel={cancelReservation}
+      />
     </main>
   )
 }

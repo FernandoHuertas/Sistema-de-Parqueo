@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useReservation } from '../context/ReservationContext'
 import { getStatus } from '../data/mockData'
 
 const statusCopy = {
@@ -19,17 +20,26 @@ const typeCopy = {
   private: 'Privado',
 }
 
-function buildGoogleMapsLink(parking) {
-  return `https://www.google.com/maps/search/?api=1&query=${parking.lat},${parking.lng}`
+function hasCoordinates(parking) {
+  return Number.isFinite(parking.lat) && Number.isFinite(parking.lng)
 }
 
 function buildWazeLink(parking) {
   return `https://waze.com/ul?ll=${parking.lat},${parking.lng}&navigate=yes`
 }
 
+function buildGoogleMapsLink(parking) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${parking.lat},${parking.lng}`
+}
+
 export function ParkingDetailModal({ parking, onClose }) {
   const [showDirections, setShowDirections] = useState(false)
+  const [showReservationConfirm, setShowReservationConfirm] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const { makeReservation } = useReservation()
   const status = getStatus(parking)
+  const canNavigate = hasCoordinates(parking)
+  const canReserve = parking.availableSpaces > 0
 
   const squares = useMemo(() => {
     const totalSquares = 20
@@ -37,6 +47,40 @@ export function ParkingDetailModal({ parking, onClose }) {
 
     return Array.from({ length: totalSquares }, (_, index) => index < availableSquares)
   }, [parking.availableSpaces, parking.totalSpaces])
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setToastMessage(''), 3500)
+    return () => window.clearTimeout(timeoutId)
+  }, [toastMessage])
+
+  useEffect(() => {
+    setShowReservationConfirm(false)
+    setShowDirections(false)
+  }, [parking.id])
+
+  const handleReservation = () => {
+    if (!canReserve) {
+      return
+    }
+
+    setShowReservationConfirm(true)
+  }
+
+  const confirmReservation = () => {
+    const reservation = makeReservation(parking.id)
+
+    if (!reservation) {
+      setShowReservationConfirm(false)
+      return
+    }
+
+    setToastMessage(`Espacio reservado exitosamente. Tu reserva ID: ${reservation.id}`)
+    setShowReservationConfirm(false)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
@@ -101,37 +145,83 @@ export function ParkingDetailModal({ parking, onClose }) {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+            onClick={handleReservation}
+            disabled={!canReserve}
+            className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Reservar espacio
           </button>
           <button
             type="button"
             onClick={() => setShowDirections((value) => !value)}
-            className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            disabled={!canNavigate}
+            className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           >
-            Como llegar
+            Cómo llegar
           </button>
         </div>
 
+        {!canNavigate ? (
+          <p className="mt-3 text-sm font-medium text-amber-700">Navegación no disponible</p>
+        ) : null}
+
         {showDirections ? (
-          <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4">
-            <a
-              href={buildGoogleMapsLink(parking)}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Abrir en Google Maps
-            </a>
-            <a
-              href={buildWazeLink(parking)}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-            >
-              Abrir en Waze
-            </a>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap gap-3">
+              <a
+                href={buildGoogleMapsLink(parking)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                  Google Maps
+                </span>
+                <span>Abrir ruta</span>
+              </a>
+              <a
+                href={buildWazeLink(parking)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-700"
+              >
+                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-600">
+                  Waze
+                </span>
+                <span>Abrir ruta</span>
+              </a>
+            </div>
+          </div>
+        ) : null}
+
+        {showReservationConfirm ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+            <p className="font-semibold text-emerald-900">Confirmá tu reserva para {parking.name}</p>
+            <p className="mt-1 text-sm text-emerald-800">
+              Se descontará 1 espacio disponible y se guardará tu reserva en esta sesión.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={confirmReservation}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Confirmar
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReservationConfirm(false)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {toastMessage ? (
+          <div className="fixed right-6 top-6 z-[60] max-w-sm rounded-2xl border border-emerald-200 bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+            {toastMessage}
           </div>
         ) : null}
       </div>
