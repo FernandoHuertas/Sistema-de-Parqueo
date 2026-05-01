@@ -36,6 +36,14 @@ const STATUS_ORDER = {
   full: 2,
 }
 
+const PERSISTED_PREFERENCES_KEY = 'parkingUserPreferences'
+
+const PARKING_TYPE_FILTERS = {
+  all: 'Todos',
+  public: 'Públicos',
+  private: 'Privados',
+}
+
 const DEFAULT_FILTERS = {
   minPrice: 0,
   maxPrice: 5000,
@@ -124,6 +132,47 @@ function getQuickSearchSort(a, b) {
   return getMockDistance(a) - getMockDistance(b)
 }
 
+function loadSavedPreferences() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const storedValue = window.localStorage.getItem(PERSISTED_PREFERENCES_KEY)
+  if (!storedValue) {
+    return null
+  }
+
+  try {
+    return JSON.parse(storedValue)
+  } catch {
+    return null
+  }
+}
+
+function getDefaultParkingTypeFilter() {
+  return 'all'
+}
+
+function matchesParkingTypeFilter(parking, parkingTypeFilter) {
+  if (parkingTypeFilter === 'all') {
+    return true
+  }
+
+  if (parkingTypeFilter === 'public') {
+    return parking.type === 'public' || parking.type === 'municipal'
+  }
+
+  if (parkingTypeFilter === 'private') {
+    return parking.type === 'private'
+  }
+
+  return true
+}
+
+function applyParkingTypeFilter(parkings, parkingTypeFilter) {
+  return parkings.filter((parking) => matchesParkingTypeFilter(parking, parkingTypeFilter))
+}
+
 function RoofIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
@@ -134,13 +183,48 @@ function RoofIcon() {
 
 export function ParkingMapView() {
   const { parkings } = useParkingContext()
-  const { reservations, alert, cancelReservation, simulateSpaceTaken, dismissAlert } = useReservation()
+  const {
+    reservations,
+    alert,
+    cancelReservation,
+    clearReservationHistory,
+    simulateSpaceTaken,
+    dismissAlert,
+  } = useReservation()
   const [isQuickSearchActive, setIsQuickSearchActive] = useState(false)
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [isReservationsOpen, setIsReservationsOpen] = useState(false)
   const [selectedParkingId, setSelectedParkingId] = useState(null)
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
   const [draftFilters, setDraftFilters] = useState(DEFAULT_FILTERS)
+  const [parkingTypeFilter, setParkingTypeFilter] = useState(getDefaultParkingTypeFilter)
+  const [hasSavedPreferences, setHasSavedPreferences] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+
+  useEffect(() => {
+    const savedPreferences = loadSavedPreferences()
+
+    if (!savedPreferences) {
+      return
+    }
+
+    const nextFilters = savedPreferences.filters ?? DEFAULT_FILTERS
+    const nextParkingTypeFilter = savedPreferences.parkingTypeFilter ?? getDefaultParkingTypeFilter()
+
+    setDraftFilters(nextFilters)
+    setAppliedFilters(nextFilters)
+    setParkingTypeFilter(nextParkingTypeFilter)
+    setHasSavedPreferences(true)
+  }, [])
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setToastMessage(''), 2600)
+    return () => window.clearTimeout(timeoutId)
+  }, [toastMessage])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -150,11 +234,14 @@ export function ParkingMapView() {
     return () => window.clearInterval(interval)
   }, [simulateSpaceTaken])
 
-  const previewCount = useMemo(() => applyFilters(parkings, draftFilters).length, [draftFilters, parkings])
+  const previewCount = useMemo(() => {
+    const filteredByType = applyParkingTypeFilter(parkings, parkingTypeFilter)
+    return applyFilters(filteredByType, draftFilters).length
+  }, [draftFilters, parkingTypeFilter, parkings])
 
   const filteredParkings = useMemo(
-    () => applyFilters(parkings, appliedFilters),
-    [appliedFilters, parkings],
+    () => applyFilters(applyParkingTypeFilter(parkings, parkingTypeFilter), appliedFilters),
+    [appliedFilters, parkingTypeFilter, parkings],
   )
 
   const visibleParkings = useMemo(() => {
@@ -169,6 +256,29 @@ export function ParkingMapView() {
     setDraftFilters(DEFAULT_FILTERS)
     setAppliedFilters(DEFAULT_FILTERS)
     setIsQuickSearchActive(false)
+    setParkingTypeFilter(getDefaultParkingTypeFilter())
+  }
+
+  const savePreferences = () => {
+    const payload = {
+      filters: draftFilters,
+      parkingTypeFilter,
+    }
+
+    window.localStorage.setItem(PERSISTED_PREFERENCES_KEY, JSON.stringify(payload))
+    setHasSavedPreferences(true)
+    setAppliedFilters(draftFilters)
+    setToastMessage('Preferencias guardadas.')
+  }
+
+  const restoreDefaults = () => {
+    window.localStorage.removeItem(PERSISTED_PREFERENCES_KEY)
+    setDraftFilters(DEFAULT_FILTERS)
+    setAppliedFilters(DEFAULT_FILTERS)
+    setParkingTypeFilter(getDefaultParkingTypeFilter())
+    setHasSavedPreferences(false)
+    setIsQuickSearchActive(false)
+    setToastMessage('Preferencias restauradas.')
   }
 
   const selectedParking = useMemo(
@@ -178,6 +288,12 @@ export function ParkingMapView() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
+      {toastMessage ? (
+        <div className="fixed right-6 top-6 z-[60] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-xl">
+          {toastMessage}
+        </div>
+      ) : null}
+
       {alert ? (
         <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 shadow-sm">
           <div className="flex items-start justify-between gap-4">
@@ -250,6 +366,45 @@ export function ParkingMapView() {
           {visibleParkings.length} parqueos cercanos encontrados
         </p>
       </div>
+
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Filtro por tipo de parqueo</p>
+            <div className="mt-3 inline-flex overflow-hidden rounded-full border border-slate-200 bg-slate-100 p-1">
+              {Object.entries(PARKING_TYPE_FILTERS).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setParkingTypeFilter(key)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                    parkingTypeFilter === key
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-1 text-xs text-slate-600 sm:grid-cols-3 sm:gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+              Municipal
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+              Público
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-500" />
+              Privado
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
         <p className="text-sm font-semibold text-slate-800">Codigo de colores (semaforo):</p>
@@ -335,6 +490,7 @@ export function ParkingMapView() {
         isOpen={isAdvancedOpen}
         draftFilters={draftFilters}
         previewCount={previewCount}
+        hasSavedPreferences={hasSavedPreferences}
         onChange={setDraftFilters}
         onClose={() => setIsAdvancedOpen(false)}
         onApply={() => {
@@ -342,6 +498,8 @@ export function ParkingMapView() {
           setIsAdvancedOpen(false)
         }}
         onClear={clearAllFilters}
+        onSavePreferences={savePreferences}
+        onRestoreDefaults={restoreDefaults}
       />
 
       {selectedParking ? (
@@ -354,6 +512,7 @@ export function ParkingMapView() {
         parkings={parkings}
         onClose={() => setIsReservationsOpen(false)}
         onCancel={cancelReservation}
+        onClearHistory={clearReservationHistory}
       />
     </main>
   )

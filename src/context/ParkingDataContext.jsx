@@ -31,14 +31,19 @@ export function ParkingDataProvider({ children }) {
     )
   }, [])
 
+  const addParking = useCallback((parking) => {
+    setParkings((currentParkings) => [...currentParkings, parking])
+  }, [])
+
   const value = useMemo(
     () => ({
       parkings,
       setParkings,
       updateParking,
       adjustParkingAvailability,
+      addParking,
     }),
-    [adjustParkingAvailability, parkings, updateParking],
+    [addParking, adjustParkingAvailability, parkings, updateParking],
   )
 
   return <ParkingDataContext.Provider value={value}>{children}</ParkingDataContext.Provider>

@@ -34,6 +34,11 @@ function reservationReducer(state, action) {
         ...state,
         alert: null,
       }
+    case 'CLEAR_RESERVATION_HISTORY':
+      return {
+        ...state,
+        reservations: state.reservations.filter((reservation) => reservation.status === 'active'),
+      }
     default:
       return state
   }
@@ -124,6 +129,10 @@ export function ReservationProvider({ children }) {
 
   const dismissAlert = useCallback(() => dispatch({ type: 'DISMISS_ALERT' }), [])
 
+  const clearReservationHistory = useCallback(() => {
+    dispatch({ type: 'CLEAR_RESERVATION_HISTORY' })
+  }, [])
+
   const value = useMemo(
     () => ({
       reservations: state.reservations,
@@ -133,8 +142,18 @@ export function ReservationProvider({ children }) {
       cancelReservation,
       simulateSpaceTaken,
       dismissAlert,
+      clearReservationHistory,
     }),
-    [activeReservations, state.alert, state.reservations, parkings],
+    [
+      activeReservations,
+      state.alert,
+      state.reservations,
+      makeReservation,
+      cancelReservation,
+      simulateSpaceTaken,
+      dismissAlert,
+      clearReservationHistory,
+    ],
   )
 
   return <ReservationContext.Provider value={value}>{children}</ReservationContext.Provider>

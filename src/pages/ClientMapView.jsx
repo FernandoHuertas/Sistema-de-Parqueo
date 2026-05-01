@@ -7,6 +7,18 @@ const statusClasses = {
   full: 'bg-rose-100 text-rose-700',
 }
 
+const typeClasses = {
+  municipal: 'bg-blue-100 text-blue-700',
+  public: 'bg-orange-100 text-orange-700',
+  private: 'bg-slate-200 text-slate-700',
+}
+
+const typeLabels = {
+  municipal: 'Municipal',
+  public: 'Publico',
+  private: 'Privado',
+}
+
 export function ClientMapView() {
   const { parkings } = useParkingContext()
 
@@ -25,9 +37,14 @@ export function ClientMapView() {
             <article key={parking.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900">{parking.name}</h3>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${statusClasses[status]}`}>
-                  {status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${typeClasses[parking.type]}`}>
+                    {typeLabels[parking.type]}
+                  </span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${statusClasses[status]}`}>
+                    {status}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-slate-600">{parking.address}</p>
               <p className="mt-2 text-sm text-slate-700">Tipo: {parking.type}</p>

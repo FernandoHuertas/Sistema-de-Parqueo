@@ -8,10 +8,13 @@ export function AdvancedSearchPanel({
   isOpen,
   draftFilters,
   previewCount,
+  hasSavedPreferences,
   onClose,
   onApply,
   onClear,
   onChange,
+  onSavePreferences,
+  onRestoreDefaults,
 }) {
   const toggleType = (type) => {
     const isSelected = draftFilters.types.includes(type)
@@ -51,7 +54,14 @@ export function AdvancedSearchPanel({
         }`}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-xl font-bold text-slate-900">Busqueda avanzada</h3>
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">Busqueda avanzada</h3>
+            {hasSavedPreferences ? (
+              <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Preferencias guardadas
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -185,6 +195,23 @@ export function AdvancedSearchPanel({
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
           >
             Aplicar filtros
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-3">
+          <button
+            type="button"
+            onClick={onSavePreferences}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Guardar como preferencias por defecto
+          </button>
+          <button
+            type="button"
+            onClick={onRestoreDefaults}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            Restaurar valores por defecto
           </button>
         </div>
       </aside>

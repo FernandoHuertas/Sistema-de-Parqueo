@@ -1,19 +1,42 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { AddMunicipalZoneModal } from '../components/AddMunicipalZoneModal'
 import { EditParkingModal } from '../components/EditParkingModal'
 import { useParkingContext } from '../context/ParkingContext'
 import { getStatus } from '../data/mockData'
 
 const cardClass = 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm'
 
+const ADMIN_ROLES = {
+  private_admin: {
+    password: 'admin123',
+    label: 'Admin de Parqueo',
+    badgeClass: 'bg-teal-100 text-teal-700',
+  },
+  municipal_admin: {
+    password: 'municipal123',
+    label: 'Municipalidad',
+    badgeClass: 'bg-blue-100 text-blue-700',
+  },
+}
+
+function createMunicipalZoneId() {
+  return `mz-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`
+}
+
 export function AdminPanel() {
-  const { parkings, setParkings } = useParkingContext()
+  const { parkings, setParkings, addParking } = useParkingContext()
   const [password, setPassword] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [adminRole, setAdminRole] = useState(null)
   const [editingParkingId, setEditingParkingId] = useState(null)
+  const [isAddZoneOpen, setIsAddZoneOpen] = useState(false)
 
   const handleLogin = () => {
-    if (password === 'admin123') {
+    const matchedRole = Object.entries(ADMIN_ROLES).find(([, role]) => role.password === password)
+
+    if (matchedRole) {
       setIsAuthenticated(true)
+      setAdminRole(matchedRole[0])
     }
   }
 
@@ -31,6 +54,33 @@ export function AdminPanel() {
     )
     setEditingParkingId(null)
   }
+
+  const handleCreateMunicipalZone = ({ name, address, totalSpaces, pricePerHour, operatingHours }) => {
+    addParking({
+      id: createMunicipalZoneId(),
+      name,
+      type: 'municipal',
+      address,
+      lat: null,
+      lng: null,
+      totalSpaces,
+      availableSpaces: totalSpaces,
+      pricePerHour,
+      hasCover: false,
+      operatingHours,
+      promotionText: null,
+    })
+
+    setIsAddZoneOpen(false)
+  }
+
+  const visibleParkings = useMemo(() => {
+    if (adminRole === 'municipal_admin') {
+      return parkings.filter((parking) => parking.type === 'municipal')
+    }
+
+    return parkings
+  }, [adminRole, parkings])
 
   if (!isAuthenticated) {
     return (
@@ -60,24 +110,36 @@ export function AdminPanel() {
   }
 
   const summary = {
-    total: parkings.length,
-    available: parkings.filter((parking) => getStatus(parking) === 'available').length,
-    few: parkings.filter((parking) => getStatus(parking) === 'few').length,
-    full: parkings.filter((parking) => getStatus(parking) === 'full').length,
+    total: visibleParkings.length,
+    available: visibleParkings.filter((parking) => getStatus(parking) === 'available').length,
+    few: visibleParkings.filter((parking) => getStatus(parking) === 'few').length,
+    full: visibleParkings.filter((parking) => getStatus(parking) === 'full').length,
   }
 
-  const selectedParking = parkings.find((parking) => parking.id === editingParkingId) ?? null
+  const selectedParking = visibleParkings.find((parking) => parking.id === editingParkingId) ?? null
+  const roleConfig = ADMIN_ROLES[adminRole]
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Panel administrativo</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-bold text-slate-900">Panel administrativo</h2>
+            {roleConfig ? (
+              <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${roleConfig.badgeClass}`}>
+                {roleConfig.label}
+              </span>
+            ) : null}
+          </div>
           <p className="mt-1 text-slate-600">Gestion local de parqueos y disponibilidad.</p>
         </div>
         <button
           type="button"
-          onClick={() => setIsAuthenticated(false)}
+          onClick={() => {
+            setIsAuthenticated(false)
+            setAdminRole(null)
+            setPassword('')
+          }}
           className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
         >
           Logout
@@ -120,7 +182,7 @@ export function AdminPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {parkings.map((parking) => {
+              {visibleParkings.map((parking) => {
                 const status = getStatus(parking)
 
                 return (
@@ -149,6 +211,18 @@ export function AdminPanel() {
         </div>
       </section>
 
+      {adminRole === 'municipal_admin' ? (
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIsAddZoneOpen(true)}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Agregar zona de vía pública
+          </button>
+        </div>
+      ) : null}
+
       {selectedParking ? (
         <EditParkingModal
           parking={selectedParking}
@@ -156,6 +230,12 @@ export function AdminPanel() {
           onSave={handleSaveParking}
         />
       ) : null}
+
+      <AddMunicipalZoneModal
+        isOpen={isAddZoneOpen}
+        onClose={() => setIsAddZoneOpen(false)}
+        onCreate={handleCreateMunicipalZone}
+      />
     </main>
   )
 }
