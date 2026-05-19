@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AddMunicipalZoneModal } from '../components/AddMunicipalZoneModal'
 import { EditParkingModal } from '../components/EditParkingModal'
+import { PromotionManagement } from '../components/PromotionManagement'
 import { useParkingContext } from '../context/ParkingContext'
 import { getStatus } from '../data/mockData'
 
@@ -222,6 +223,8 @@ export function AdminPanel() {
           </button>
         </div>
       ) : null}
+
+      <PromotionManagement parkings={visibleParkings} adminRole={adminRole} />
 
       {selectedParking ? (
         <EditParkingModal

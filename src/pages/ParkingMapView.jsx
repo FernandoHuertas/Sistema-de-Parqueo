@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { AdvancedSearchPanel } from '../components/AdvancedSearchPanel'
 import { ParkingDetailModal } from '../components/ParkingDetailModal'
 import { ReservationsPanel } from '../components/ReservationsPanel'
+import { HeroPromotion } from '../components/HeroPromotion'
+import { PromotionBadge } from '../components/PromotionBadge'
 import { useParkingContext } from '../context/ParkingContext'
 import { useReservation } from '../context/ReservationContext'
 import { getStatus } from '../data/mockData'
@@ -312,6 +314,8 @@ export function ParkingMapView() {
         </div>
       ) : null}
 
+      <HeroPromotion onParkingSelect={setSelectedParkingId} />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Mapa visual de parqueos</h2>
@@ -447,9 +451,12 @@ export function ParkingMapView() {
             >
               <div className="mb-3 flex items-start justify-between gap-3">
                 <h3 className="text-base font-bold text-slate-900">{parking.name}</h3>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${TYPE_BADGE_CLASS[parking.type]}`}>
-                  {TYPE_LABEL[parking.type]}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${TYPE_BADGE_CLASS[parking.type]}`}>
+                    {TYPE_LABEL[parking.type]}
+                  </span>
+                  <PromotionBadge parkingId={parking.id} />
+                </div>
               </div>
 
               <div className="mb-3 flex items-center gap-3">

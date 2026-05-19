@@ -5,13 +5,16 @@ import './index.css'
 import App from './App.jsx'
 import { ParkingDataProvider } from './context/ParkingDataContext'
 import { ReservationProvider } from './context/ReservationContext'
+import { PromotionProvider } from './context/PromotionContext'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ParkingDataProvider>
         <ReservationProvider>
-          <App />
+          <PromotionProvider>
+            <App />
+          </PromotionProvider>
         </ReservationProvider>
       </ParkingDataProvider>
     </BrowserRouter>
