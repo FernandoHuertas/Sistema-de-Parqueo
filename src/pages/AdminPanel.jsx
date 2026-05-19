@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { AddParkingModal } from '../components/AddParkingModal'
 import { AddMunicipalZoneModal } from '../components/AddMunicipalZoneModal'
 import { EditParkingModal } from '../components/EditParkingModal'
 import { PromotionManagement } from '../components/PromotionManagement'
@@ -30,7 +31,18 @@ export function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [adminRole, setAdminRole] = useState(null)
   const [editingParkingId, setEditingParkingId] = useState(null)
+  const [isAddParkingOpen, setIsAddParkingOpen] = useState(false)
   const [isAddZoneOpen, setIsAddZoneOpen] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => setToastMessage(''), 2800)
+    return () => window.clearTimeout(timeoutId)
+  }, [toastMessage])
 
   const handleLogin = () => {
     const matchedRole = Object.entries(ADMIN_ROLES).find(([, role]) => role.password === password)
@@ -73,6 +85,11 @@ export function AdminPanel() {
     })
 
     setIsAddZoneOpen(false)
+  }
+
+  const handleParkingCreated = () => {
+    setIsAddParkingOpen(false)
+    setToastMessage('Parqueo agregado exitosamente')
   }
 
   const visibleParkings = useMemo(() => {
@@ -167,8 +184,17 @@ export function AdminPanel() {
       </section>
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
           <h3 className="text-lg font-semibold text-slate-900">Listado de parqueos</h3>
+          {adminRole === 'private_admin' ? (
+            <button
+              type="button"
+              onClick={() => setIsAddParkingOpen(true)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            >
+              Agregar parqueo
+            </button>
+          ) : null}
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
@@ -239,6 +265,18 @@ export function AdminPanel() {
         onClose={() => setIsAddZoneOpen(false)}
         onCreate={handleCreateMunicipalZone}
       />
+
+      <AddParkingModal
+        isOpen={isAddParkingOpen}
+        onClose={() => setIsAddParkingOpen(false)}
+        onCreated={handleParkingCreated}
+      />
+
+      {toastMessage ? (
+        <div className="fixed bottom-4 right-4 z-50 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg">
+          {toastMessage}
+        </div>
+      ) : null}
     </main>
   )
 }
